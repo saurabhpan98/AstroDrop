@@ -13,7 +13,7 @@ export default function Footer() {
         </div>
         <div className="flex items-center space-x-1.5 text-xs text-slate-500">
           <span>Engineered by</span>
-          <span className="font-semibold text-slate-700">Saurabh Panchal</span>[cite: 1]
+          <span className="font-semibold text-slate-700">Saurabh Panchal</span>
         </div>
         <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-400">
           <span className="flex items-center text-emerald-600 font-medium">

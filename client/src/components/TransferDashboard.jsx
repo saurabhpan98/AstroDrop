@@ -31,18 +31,19 @@ export default function TransferDashboard({
   return (
     <div className="cosmic-card rounded-2xl sm:rounded-3xl p-4 sm:p-7 relative overflow-hidden mb-4 sm:mb-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 sm:pb-5 border-b border-slate-100 gap-3">
-        <div className="flex items-center space-x-2.5 sm:space-x-3 w-full sm:w-auto">
-          <div className="relative shrink-0">
+        <div className="flex items-center space-x-3 w-full sm:w-auto">
+          {/* Concentric Centered Status Indicator */}
+          <div className="relative flex items-center justify-center w-4 h-4 shrink-0">
             {isConnected ? (
               <>
-                <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                <span className="animate-ping absolute inset-0 inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-xs"></span>
               </>
             ) : (
-              <span className="inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
             )}
           </div>
-          <div className="truncate">
+          <div className="truncate min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">
               {isConnected ? (
                 <>Connected: <span className="text-sky-600">{peerName}</span></>
@@ -58,7 +59,7 @@ export default function TransferDashboard({
         {isConnected && (
           <button
             onClick={onDisconnect}
-            className="w-full sm:w-auto justify-center flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-50 text-rose-600 border border-rose-200/80 hover:bg-rose-100 transition shadow-xs active:scale-95"
+            className="w-full sm:w-auto justify-center flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-50 text-rose-600 border border-rose-200/80 hover:bg-rose-100 transition shadow-xs active:scale-95 shrink-0"
           >
             <XCircle className="w-3.5 h-3.5" />
             <span>Sever Link</span>
@@ -100,14 +101,14 @@ export default function TransferDashboard({
         </div>
       )}
 
-      {/* Received Downloads List */}
+      {/* Received Downloads List (Max 2 rows + Scrollbar) */}
       {receivedFiles.length > 0 && (
         <div className="mt-4 sm:mt-6">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center">
             <Download className="w-3.5 h-3.5 mr-1 text-sky-600" />
-            Received Files
+            Received Files ({receivedFiles.length})
           </h4>
-          <div className="space-y-2">
+          <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
             {receivedFiles.map((file, idx) => (
               <div key={idx} className="flex items-center justify-between p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl shadow-xs gap-2">
                 <div className="flex items-center space-x-2 truncate">
@@ -128,14 +129,14 @@ export default function TransferDashboard({
         </div>
       )}
 
-      {/* Sent Payloads List */}
+      {/* Sent Payloads List (Max 2 rows + Scrollbar) */}
       {sentFiles.length > 0 && (
         <div className="mt-4 sm:mt-6">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center">
             <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-            Sent Files
+            Sent Files ({sentFiles.length})
           </h4>
-          <div className="space-y-2">
+          <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
             {sentFiles.map((file, idx) => (
               <div key={idx} className="flex items-center justify-between p-2.5 sm:p-3 bg-slate-50/70 border border-slate-200/60 rounded-xl gap-2">
                 <div className="flex items-center space-x-2 truncate">
