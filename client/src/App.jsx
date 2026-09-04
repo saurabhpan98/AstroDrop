@@ -13,8 +13,28 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ]
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      // Open-relay public TURN server for NAT cross-network traversal fallback
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
 };
 
 export default function App() {
@@ -120,13 +140,25 @@ export default function App() {
   }, [profile]);
 
   const preparePeerConnection = async (targetId, isInitiator, peerProfile) => {
+    // Teardown any dangling previous connection
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
     }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionRef.current = pc;
     iceCandidatesQueue.current = [];
+
+    // Debug logging for network troubleshooting
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE Connection State:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'failed') {
+        pc.restartIce();
+      } else if (pc.iceConnectionState === 'disconnected') {
+        handleTeardownSession();
+      }
+    };
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
@@ -138,34 +170,48 @@ export default function App() {
     };
 
     if (isInitiator) {
-      const dc = pc.createDataChannel('astro-channel');
-      attachDataChannel(dc, peerProfile);
+      // Initiator creates data channel
+      const dc = pc.createDataChannel('astro-channel', {
+        ordered: true
+      });
       dataChannelRef.current = dc;
+      attachDataChannel(dc, peerProfile, targetId);
 
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socketRef.current.emit('signal', { targetId, signalData: offer });
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socketRef.current.emit('signal', { targetId, signalData: offer });
+      } catch (err) {
+        console.error('Error creating offer:', err);
+      }
     } else {
+      // Receiver waits for data channel from initiator
       pc.ondatachannel = (e) => {
-        attachDataChannel(e.channel, peerProfile);
         dataChannelRef.current = e.channel;
+        attachDataChannel(e.channel, peerProfile, targetId);
       };
     }
   };
 
-  const attachDataChannel = (dc, peerProfile) => {
+  const attachDataChannel = (dc, peerProfile, targetId) => {
     dc.binaryType = 'arraybuffer';
 
     dc.onopen = () => {
+      console.log('Quantum DataChannel established successfully!');
       setConnectedPeer({
-        id: targetIdRef.current,
+        id: targetId,
         profile: peerProfile || { username: 'Cosmic Node' }
       });
       setIncomingRequest(null);
     };
 
     dc.onclose = () => {
+      console.log('DataChannel closed');
       handleTeardownSession();
+    };
+
+    dc.onerror = (err) => {
+      console.error('DataChannel error:', err);
     };
 
     dc.onmessage = (e) => {
@@ -197,7 +243,6 @@ export default function App() {
       }
     };
   };
-
   const sendFilePayload = async (file) => {
     const dc = dataChannelRef.current;
     if (!dc || dc.readyState !== 'open') return;
@@ -285,15 +330,18 @@ export default function App() {
                 Decline
               </button>
               <button
-                onClick={() => {
-                  // Direct acceptance emit triggers negotiation instantaneously on both peers
-                  socketRef.current.emit('respond-connection-request', { fromId: incomingRequest.fromId, accepted: true });
-                  setIncomingRequest(null);
-                }}
-                className="flex-1 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:brightness-110 transition"
-              >
-                Establish
-              </button>
+				  onClick={() => {
+					if (!incomingRequest) return;
+					socketRef.current.emit('respond-connection-request', {
+					  fromId: incomingRequest.fromId,
+					  accepted: true
+					});
+					// Do NOT clear incomingRequest yet; it clears automatically once DataChannel is 'open'
+				  }}
+				  className="flex-1 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:brightness-110 transition"
+				>
+				  Establish
+				</button>
             </div>
           </div>
         </div>

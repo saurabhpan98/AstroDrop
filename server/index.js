@@ -66,20 +66,21 @@ io.on('connection', (socket) => {
   socket.on('connect-by-code', ({ targetCode }) => {
     let targetSocketId = null;
     peers.forEach((val, key) => {
-      if (val.code === targetCode) targetSocketId = key;
+      if (val.code === targetCode.trim().toUpperCase()) targetSocketId = key;
     });
 
     if (!targetSocketId || targetSocketId === socket.id) {
-      socket.emit('connect-error', { message: 'Invalid target cosmic code.' });
+      socket.emit('connect-error', { message: 'Invalid or expired Cosmic Code.' });
       return;
     }
 
     const targetPeer = peers.get(targetSocketId);
     if (targetPeer.connectedWith) {
-      socket.emit('connect-error', { message: 'Target voyager is already engaged.' });
+      socket.emit('connect-error', { message: 'Target voyager is currently occupied.' });
       return;
     }
 
+    // Forward request to target
     io.to(targetSocketId).emit('connection-request', {
       fromId: socket.id,
       fromProfile: peers.get(socket.id)?.profile,
@@ -104,39 +105,44 @@ io.on('connection', (socket) => {
 
   // Acceptance / Rejection flow
   socket.on('respond-connection-request', ({ fromId, accepted }) => {
+    const sender = peers.get(fromId);
+    const receiver = peers.get(socket.id);
+
+    if (!sender || !receiver) {
+      socket.emit('connect-error', { message: 'Connection partner is no longer available.' });
+      return;
+    }
+
     if (!accepted) {
       io.to(fromId).emit('connection-rejected', {
-        byProfile: peers.get(socket.id)?.profile
+        byProfile: receiver.profile
       });
       return;
     }
 
-    const peerA = peers.get(socket.id);
-    const peerB = peers.get(fromId);
+    sender.connectedWith = socket.id;
+    receiver.connectedWith = fromId;
 
-    if (peerA && peerB) {
-      peerA.connectedWith = fromId;
-      peerB.connectedWith = socket.id;
+    // Send negotiation signal to both sides simultaneously
+    io.to(fromId).emit('start-webrtc-negotiation', {
+      targetId: socket.id,
+      initiator: true,
+      peerProfile: receiver.profile
+    });
 
-      // Notify initiator (Node A)
-      io.to(fromId).emit('start-webrtc-negotiation', { 
-        targetId: socket.id, 
-        initiator: true,
-        peerProfile: peerA.profile 
-      });
-
-      // Notify receiver (Node B)
-      io.to(socket.id).emit('start-webrtc-negotiation', { 
-        targetId: fromId, 
-        initiator: false,
-        peerProfile: peerB.profile 
-      });
-    }
+    io.to(socket.id).emit('start-webrtc-negotiation', {
+      targetId: fromId,
+      initiator: false,
+      peerProfile: sender.profile
+    });
   });
 
   // WebRTC Signal Exchange (Offers, Answers, ICE Candidates)
   socket.on('signal', ({ targetId, signalData }) => {
-    io.to(targetId).emit('signal-received', { fromId: socket.id, signalData });
+    io.to(targetId).emit('signal-received', {
+      fromId: socket.id,
+      signalData
+    });
   });
 
   // Graceful teardown
