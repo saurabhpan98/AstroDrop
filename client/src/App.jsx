@@ -8,7 +8,6 @@ import Footer from './components/Footer';
 import { AVATARS, RANDOM_NAMES, CHUNK_SIZE } from './utils/constants';
 import { storeFileLocally, purgeLocalArtifacts } from './utils/storage';
 
-// Replace with your Render URL (e.g., https://astrodrop-server.onrender.com)
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
 export default function App() {
@@ -30,6 +29,8 @@ export default function App() {
   const socketRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
+  const activeTargetIdRef = useRef(null);
+  const activePeerProfileRef = useRef(null);
   const activeIncomingFile = useRef({ info: null, chunks: [], receivedBytes: 0 });
 
   useEffect(() => {
@@ -53,23 +54,33 @@ export default function App() {
       alert('Request declined by remote voyager.');
     });
 
-    socket.on('start-webrtc-negotiation', async ({ targetId, initiator }) => {
-      initiateWebRTC(targetId, initiator);
+    socket.on('connect-error', (data) => {
+      alert(data.message || 'Connection failed.');
     });
 
-    socket.on('signal-received', async ({ signalData }) => {
-      const pc = peerConnectionRef.current;
+    socket.on('start-webrtc-negotiation', async ({ targetId, initiator, peerProfile }) => {
+      activeTargetIdRef.current = targetId;
+      activePeerProfileRef.current = peerProfile;
+      await initiateWebRTC(targetId, initiator);
+    });
+
+    socket.on('signal-received', async ({ fromId, signalData }) => {
+      let pc = peerConnectionRef.current;
       if (!pc) return;
 
       if (signalData.type === 'offer') {
         await pc.setRemoteDescription(new RTCSessionDescription(signalData));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        socket.emit('signal', { targetId: connectedPeer?.id, signalData: answer });
+        socket.emit('signal', { targetId: fromId, signalData: answer });
       } else if (signalData.type === 'answer') {
         await pc.setRemoteDescription(new RTCSessionDescription(signalData));
       } else if (signalData.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+        } catch (err) {
+          console.error('Error adding ICE candidate:', err);
+        }
       }
     });
 
@@ -78,17 +89,23 @@ export default function App() {
     });
 
     return () => socket.disconnect();
-  }, [connectedPeer]);
+  }, [profile]);
 
   const initiateWebRTC = async (targetId, isInitiator) => {
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ]
     });
     peerConnectionRef.current = pc;
 
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socketRef.current.emit('signal', { targetId, signalData: { candidate: event.candidate } });
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit('signal', { 
+          targetId, 
+          signalData: { candidate: event.candidate } 
+        });
       }
     };
 
@@ -110,9 +127,17 @@ export default function App() {
 
   const setupDataChannel = (dc) => {
     dc.binaryType = 'arraybuffer';
+
     dc.onopen = () => {
-      setConnectedPeer({ id: dc.label, profile: incomingRequest?.fromProfile || { username: 'Cosmic Node' } });
+      setConnectedPeer({
+        id: activeTargetIdRef.current,
+        profile: activePeerProfileRef.current || { username: 'Cosmic Node' }
+      });
       setIncomingRequest(null);
+    };
+
+    dc.onclose = () => {
+      handleTeardownSession();
     };
 
     dc.onmessage = (e) => {
@@ -125,8 +150,9 @@ export default function App() {
           setTransferProgress(0);
         }
       } else {
-        // Binary Chunk Stream
         const { info, chunks } = activeIncomingFile.current;
+        if (!info) return;
+
         chunks.push(e.data);
         activeIncomingFile.current.receivedBytes += e.data.byteLength;
         setTransferProgress(Math.round((activeIncomingFile.current.receivedBytes / info.size) * 100));
@@ -148,7 +174,6 @@ export default function App() {
     const dc = dataChannelRef.current;
     if (!dc || dc.readyState !== 'open') return;
 
-    // Send Header Info
     dc.send(JSON.stringify({
       type: 'file-header',
       name: file.name,
@@ -156,7 +181,6 @@ export default function App() {
       mime: file.type
     }));
 
-    // Stream Sliced Slices
     const reader = new FileReader();
     let offset = 0;
 
@@ -194,11 +218,14 @@ export default function App() {
   };
 
   const handleTeardownSession = () => {
+    if (dataChannelRef.current) dataChannelRef.current.close();
     if (peerConnectionRef.current) peerConnectionRef.current.close();
+    dataChannelRef.current = null;
+    peerConnectionRef.current = null;
+    activeTargetIdRef.current = null;
     setConnectedPeer(null);
     setShowCleanupModal(true);
 
-    // Auto-wipe browser staged files after 1 hour (3600000ms)
     setTimeout(() => {
       purgeLocalArtifacts();
     }, 3600000);
@@ -208,7 +235,6 @@ export default function App() {
     <div className="min-h-screen flex flex-col space-canvas relative selection:bg-sky-200">
       <Header userProfile={profile} userCode={selfCode} />
 
-      {/* Incoming Session Prompt Modal */}
       {incomingRequest && (
         <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full border border-sky-100 shadow-2xl text-center">
@@ -229,6 +255,7 @@ export default function App() {
               <button
                 onClick={() => {
                   socketRef.current.emit('respond-connection-request', { fromId: incomingRequest.fromId, accepted: true });
+                  setIncomingRequest(null);
                 }}
                 className="flex-1 py-2 text-sm font-semibold rounded-xl bg-sky-500 text-white hover:bg-sky-600 shadow-md shadow-sky-500/20 transition"
               >
@@ -239,7 +266,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Disconnection Cleanup Modal */}
       {showCleanupModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl">
@@ -270,7 +296,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Cosmos Display */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 flex flex-col justify-center">
         {!connectedPeer ? (
           <DiscoveryPanel
@@ -283,7 +308,7 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <TransferDashboard
-                peerName={connectedPeer.profile.username}
+                peerName={connectedPeer.profile?.username}
                 onSendFile={sendFilePayload}
                 receivedFiles={receivedFiles}
                 transferProgress={transferProgress}
@@ -295,7 +320,7 @@ export default function App() {
             </div>
             <div>
               <ChatWindow
-                peerName={connectedPeer.profile.username}
+                peerName={connectedPeer.profile?.username}
                 messages={messages}
                 onSendMessage={sendMessagePayload}
               />

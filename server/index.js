@@ -118,9 +118,19 @@ io.on('connection', (socket) => {
       peerA.connectedWith = fromId;
       peerB.connectedWith = socket.id;
 
-      // Trigger WebRTC peer negotiation initiator
-      io.to(fromId).emit('start-webrtc-negotiation', { targetId: socket.id, initiator: true });
-      io.to(socket.id).emit('start-webrtc-negotiation', { targetId: fromId, initiator: false });
+      // Notify initiator (Node A)
+      io.to(fromId).emit('start-webrtc-negotiation', { 
+        targetId: socket.id, 
+        initiator: true,
+        peerProfile: peerA.profile 
+      });
+
+      // Notify receiver (Node B)
+      io.to(socket.id).emit('start-webrtc-negotiation', { 
+        targetId: fromId, 
+        initiator: false,
+        peerProfile: peerB.profile 
+      });
     }
   });
 
