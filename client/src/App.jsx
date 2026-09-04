@@ -277,10 +277,10 @@ export default function App() {
 
       {/* Disconnection Notice Banner */}
       {sessionTerminated && (receivedFiles.length > 0 || messages.length > 0) && (
-        <div className="w-full bg-amber-50/90 border-b border-amber-200/80 backdrop-blur-md px-4 py-3 sticky top-16 z-40 shadow-sm transition-all">
+        <div className="w-full bg-amber-50/95 border-b border-amber-200/80 backdrop-blur-md px-4 py-3 sticky top-16 z-40 shadow-xs transition-all">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center space-x-3 text-xs">
-              <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600 border border-amber-300/60">
+              <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600 border border-amber-300/60 shrink-0">
                 <AlertTriangle className="w-4 h-4" />
               </div>
               <div>
@@ -294,44 +294,57 @@ export default function App() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
               <button
                 onClick={() => { setSessionTerminated(false); setConnectedPeer(null); }}
-                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition"
+                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition active:scale-95"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Orbit View</span>
               </button>
               <button
                 onClick={handleManualPurge}
-                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-rose-200 transition"
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition active:scale-95"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear Memory</span>
+                <span>Purge</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Incoming Request Modal */}
+      {/* Clean Incoming Request Modal */}
       {incomingRequest && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-slate-100 shadow-2xl text-center relative overflow-hidden">
-            <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center mx-auto mb-4 ring-8 ring-sky-50/50">
-              <span className="text-3xl">{incomingRequest.fromProfile?.avatar || '📡'}</span>
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-slate-100 shadow-2xl text-center relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Clean Avatar Display (Emoji + Title Separated) */}
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-50 to-indigo-50 border border-sky-100 flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <span className="text-3xl select-none leading-none">
+                {incomingRequest.fromProfile?.avatar ? incomingRequest.fromProfile.avatar.split(' ')[0] : '🪐'}
+              </span>
+              <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-sky-500 border-2 border-white"></span>
+              </span>
             </div>
-            <h3 className="font-bold text-slate-800 text-lg mb-1">Incoming Transmission</h3>
+
+            <span className="inline-block text-[11px] font-semibold text-sky-600 bg-sky-50 border border-sky-100/80 px-2.5 py-0.5 rounded-full mb-2">
+              {incomingRequest.fromProfile?.avatar?.split(' ').slice(1).join(' ') || 'Voyager'}
+            </span>
+
+            <h3 className="font-bold text-slate-800 text-base mb-1">Incoming Transmission</h3>
             <p className="text-xs text-slate-500 mb-6">
-              Voyager <span className="font-semibold text-sky-600">{incomingRequest.fromProfile?.username}</span> is requesting a connection.
+              Voyager <strong className="font-semibold text-slate-700">{incomingRequest.fromProfile?.username}</strong> wants to establish a peer link.
             </p>
-            <div className="flex space-x-3">
+
+            <div className="flex space-x-2.5">
               <button
                 onClick={() => {
                   socketRef.current.emit('respond-connection-request', { fromId: incomingRequest.fromId, accepted: false });
                   setIncomingRequest(null);
                 }}
-                className="flex-1 py-2.5 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
+                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition active:scale-95"
               >
                 Decline
               </button>
@@ -340,7 +353,7 @@ export default function App() {
                   socketRef.current.emit('respond-connection-request', { fromId: incomingRequest.fromId, accepted: true });
                   setIncomingRequest(null);
                 }}
-                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-200 transition"
+                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-200 transition active:scale-95"
               >
                 Accept
               </button>
@@ -349,7 +362,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-6 flex flex-col justify-center">
         {!connectedPeer && !sessionTerminated ? (
           <DiscoveryPanel
             nearbyPeers={nearbyPeers}
@@ -358,7 +371,7 @@ export default function App() {
             onConnectCode={(targetCode) => socketRef.current.emit('connect-by-code', { targetCode })}
           />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="lg:col-span-2">
               <TransferDashboard
                 peerName={connectedPeer ? connectedPeer.profile?.username : lastPeerName}
