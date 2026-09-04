@@ -10,6 +10,13 @@ import { storeFileLocally, purgeLocalArtifacts } from './utils/storage';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
+
 export default function App() {
   const [profile] = useState({
     username: RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)],
@@ -20,7 +27,7 @@ export default function App() {
   const [nearbyPeers, setNearbyPeers] = useState([]);
   const [connectedPeer, setConnectedPeer] = useState(null);
   const [incomingRequest, setIncomingRequest] = useState(null);
-  
+
   const [messages, setMessages] = useState([]);
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [transferProgress, setTransferProgress] = useState(null);
@@ -29,13 +36,17 @@ export default function App() {
   const socketRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
-  const activeTargetIdRef = useRef(null);
-  const activePeerProfileRef = useRef(null);
+  const targetIdRef = useRef(null);
+  const iceCandidatesQueue = useRef([]);
   const activeIncomingFile = useRef({ info: null, chunks: [], receivedBytes: 0 });
 
   useEffect(() => {
-    const socket = io(BACKEND_URL);
+    const socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Signal Nexus Connected');
+    });
 
     socket.on('assigned-identity', ({ code }) => {
       setSelfCode(code);
@@ -51,36 +62,53 @@ export default function App() {
     });
 
     socket.on('connection-rejected', () => {
-      alert('Request declined by remote voyager.');
+      alert('Transmission link declined by remote voyager.');
     });
 
     socket.on('connect-error', (data) => {
-      alert(data.message || 'Connection failed.');
+      alert(data.message || 'Signal link failed.');
     });
 
+    // Both parties are notified by the server once accepted
     socket.on('start-webrtc-negotiation', async ({ targetId, initiator, peerProfile }) => {
-      activeTargetIdRef.current = targetId;
-      activePeerProfileRef.current = peerProfile;
-      await initiateWebRTC(targetId, initiator);
+      targetIdRef.current = targetId;
+      await preparePeerConnection(targetId, initiator, peerProfile);
     });
 
     socket.on('signal-received', async ({ fromId, signalData }) => {
-      let pc = peerConnectionRef.current;
+      const pc = peerConnectionRef.current;
       if (!pc) return;
 
-      if (signalData.type === 'offer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signalData));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('signal', { targetId: fromId, signalData: answer });
-      } else if (signalData.type === 'answer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signalData));
-      } else if (signalData.candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-        } catch (err) {
-          console.error('Error adding ICE candidate:', err);
+      try {
+        if (signalData.type === 'offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData));
+          
+          // Flush any early-queued ICE candidates
+          while (iceCandidatesQueue.current.length) {
+            const candidate = iceCandidatesQueue.current.shift();
+            await pc.addIceCandidate(candidate);
+          }
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socketRef.current.emit('signal', { targetId: fromId, signalData: answer });
+        } else if (signalData.type === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData));
+          
+          while (iceCandidatesQueue.current.length) {
+            const candidate = iceCandidatesQueue.current.shift();
+            await pc.addIceCandidate(candidate);
+          }
+        } else if (signalData.candidate) {
+          const candidate = new RTCIceCandidate(signalData.candidate);
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(candidate);
+          } else {
+            iceCandidatesQueue.current.push(candidate);
+          }
         }
+      } catch (err) {
+        console.error('WebRTC Handshake Error:', err);
       }
     });
 
@@ -91,27 +119,27 @@ export default function App() {
     return () => socket.disconnect();
   }, [profile]);
 
-  const initiateWebRTC = async (targetId, isInitiator) => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
-      ]
-    });
+  const preparePeerConnection = async (targetId, isInitiator, peerProfile) => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+    }
+
+    const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionRef.current = pc;
+    iceCandidatesQueue.current = [];
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
-        socketRef.current.emit('signal', { 
-          targetId, 
-          signalData: { candidate: event.candidate } 
+        socketRef.current.emit('signal', {
+          targetId,
+          signalData: { candidate: event.candidate }
         });
       }
     };
 
     if (isInitiator) {
       const dc = pc.createDataChannel('astro-channel');
-      setupDataChannel(dc);
+      attachDataChannel(dc, peerProfile);
       dataChannelRef.current = dc;
 
       const offer = await pc.createOffer();
@@ -119,19 +147,19 @@ export default function App() {
       socketRef.current.emit('signal', { targetId, signalData: offer });
     } else {
       pc.ondatachannel = (e) => {
-        setupDataChannel(e.channel);
+        attachDataChannel(e.channel, peerProfile);
         dataChannelRef.current = e.channel;
       };
     }
   };
 
-  const setupDataChannel = (dc) => {
+  const attachDataChannel = (dc, peerProfile) => {
     dc.binaryType = 'arraybuffer';
 
     dc.onopen = () => {
       setConnectedPeer({
-        id: activeTargetIdRef.current,
-        profile: activePeerProfileRef.current || { username: 'Cosmic Node' }
+        id: targetIdRef.current,
+        profile: peerProfile || { username: 'Cosmic Node' }
       });
       setIncomingRequest(null);
     };
@@ -222,7 +250,7 @@ export default function App() {
     if (peerConnectionRef.current) peerConnectionRef.current.close();
     dataChannelRef.current = null;
     peerConnectionRef.current = null;
-    activeTargetIdRef.current = null;
+    targetIdRef.current = null;
     setConnectedPeer(null);
     setShowCleanupModal(true);
 
@@ -232,15 +260,19 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col space-canvas relative selection:bg-sky-200">
+    <div className="min-h-screen flex flex-col deep-cosmos relative selection:bg-sky-500/30 selection:text-sky-200">
       <Header userProfile={profile} userCode={selfCode} />
 
+      {/* Incoming Connection Request Modal */}
       {incomingRequest && (
-        <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full border border-sky-100 shadow-2xl text-center">
-            <h3 className="font-bold text-slate-800 text-lg mb-1">Incoming Transmission</h3>
-            <p className="text-sm text-slate-500 mb-6">
-              Node <span className="font-bold text-indigo-600">{incomingRequest.fromProfile?.username}</span> requests wormhole access.
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="cosmic-card rounded-2xl p-6 max-w-sm w-full border border-sky-500/40 shadow-[0_0_40px_rgba(56,189,248,0.3)] text-center relative overflow-hidden">
+            <div className="w-16 h-16 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <span className="text-2xl">{incomingRequest.fromProfile?.avatar || '🛸'}</span>
+            </div>
+            <h3 className="font-bold text-slate-100 text-lg mb-1">Incoming Transmission</h3>
+            <p className="text-xs text-slate-400 mb-6">
+              Node <span className="font-bold text-sky-400">{incomingRequest.fromProfile?.username}</span> requests wormhole link.
             </p>
             <div className="flex space-x-3">
               <button
@@ -248,16 +280,17 @@ export default function App() {
                   socketRef.current.emit('respond-connection-request', { fromId: incomingRequest.fromId, accepted: false });
                   setIncomingRequest(null);
                 }}
-                className="flex-1 py-2 text-sm font-semibold rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                className="flex-1 py-2 text-xs font-semibold rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 transition"
               >
-                Refuse
+                Decline
               </button>
               <button
                 onClick={() => {
+                  // Direct acceptance emit triggers negotiation instantaneously on both peers
                   socketRef.current.emit('respond-connection-request', { fromId: incomingRequest.fromId, accepted: true });
                   setIncomingRequest(null);
                 }}
-                className="flex-1 py-2 text-sm font-semibold rounded-xl bg-sky-500 text-white hover:bg-sky-600 shadow-md shadow-sky-500/20 transition"
+                className="flex-1 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:brightness-110 transition"
               >
                 Establish
               </button>
@@ -266,19 +299,20 @@ export default function App() {
         </div>
       )}
 
+      {/* Disconnect Cleanup Modal */}
       {showCleanupModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl">
-            <h3 className="font-bold text-slate-900 text-lg mb-2">Session Severed</h3>
-            <p className="text-sm text-slate-600 mb-6">
-              Would you like to purge received files and transmission logs immediately? If left untouched, browser staged data will auto-delete in 1 hour.
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="cosmic-card rounded-2xl p-6 max-w-md w-full border border-slate-700 shadow-2xl">
+            <h3 className="font-bold text-slate-100 text-lg mb-2">Wormhole Severed</h3>
+            <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+              Purge ephemeral in-browser staging data and transmission history immediately? Otherwise, background auto-wipe will scrub client memory in 1 hour.
             </p>
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowCleanupModal(false)}
-                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700"
               >
-                Preserve (1h Autokill)
+                Keep (1hr Auto-Purge)
               </button>
               <button
                 onClick={() => {
@@ -287,9 +321,9 @@ export default function App() {
                   setReceivedFiles([]);
                   setShowCleanupModal(false);
                 }}
-                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 shadow-md shadow-rose-600/20"
+                className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]"
               >
-                Clear Everything Now
+                Scrub All Now
               </button>
             </div>
           </div>
