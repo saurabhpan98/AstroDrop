@@ -1,28 +1,26 @@
 import React from 'react';
-import { ShieldCheck, Sparkles, Orbit } from 'lucide-react';
+import { ShieldCheck, Orbit } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-sky-500/20 bg-slate-950/70 backdrop-blur-xl mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+    <footer className="w-full border-t border-slate-200/80 bg-white/70 backdrop-blur-md mt-auto">
+      <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 text-center sm:text-left">
         <div className="flex items-center space-x-2">
-          <Orbit className="w-4 h-4 text-sky-400 animate-spin" style={{ animationDuration: '15s' }} />
-          <p className="text-xs font-mono font-medium text-slate-400">
-            AstroDrop: Zero-Trace P2P Galaxy Relay
+          <Orbit className="w-4 h-4 text-sky-600 animate-spin" style={{ animationDuration: '20s' }} />
+          <p className="text-xs font-mono font-medium text-slate-500">
+            AstroDrop P2P Relay
           </p>
         </div>
-
-        <div className="flex items-center space-x-1.5 text-xs text-slate-400">
-          <span>Engineered with cosmic precision by</span>
-          <span className="font-bold text-sky-400 tracking-wide">Saurabh Panchal</span>
+        <div className="flex items-center space-x-1.5 text-xs text-slate-500">
+          <span>Engineered by</span>
+          <span className="font-semibold text-slate-700">Saurabh Panchal</span>[cite: 1]
         </div>
-
-        <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-500">
-          <span className="flex items-center text-emerald-400">
-            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Memory Chunks Only
+        <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-400">
+          <span className="flex items-center text-emerald-600 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> RAM Chunks
           </span>
           <span>•</span>
-          <span>Zero Server Footprint</span>
+          <span>Zero Trace</span>
         </div>
       </div>
     </footer>
