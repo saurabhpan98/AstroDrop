@@ -25,9 +25,9 @@ export default function Header({ userProfile, userCode }) {
 
         {/* User Identity Chip - Responsive & Wrap-Safe */}
         {userProfile && (
-          <div className="flex items-center space-x-1.5 sm:space-x-2.5 bg-slate-50 border border-slate-200 rounded-full px-2.5 sm:px-3 py-1 shadow-xs shrink min-w-0 max-w-[55%] sm:max-w-none">
-            <span className="text-sm sm:text-base leading-none shrink-0">{avatarEmoji}</span>
-            <span className="text-xs font-semibold text-slate-700 border-l pl-1.5 sm:pl-2 border-slate-200 truncate min-w-0 max-w-[80px] sm:max-w-[140px]">
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5 bg-slate-50 border border-slate-200 rounded-full px-2.5 sm:px-3.5 py-1 sm:py-1.5 shadow-xs shrink-0">
+            <span className="text-sm sm:text-base leading-none">{userProfile.avatar}</span>
+            <span className="text-xs font-semibold text-slate-700 border-l pl-2 border-slate-200 max-w-[85px] sm:max-w-none truncate">
               {userProfile.username}
             </span>
           </div>
