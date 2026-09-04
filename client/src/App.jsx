@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Trash2, Clock, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Trash2, Clock, AlertTriangle, ArrowLeft, X, AlertCircle } from 'lucide-react';
 import Header from './components/Header';
 import DiscoveryPanel from './components/DiscoveryPanel';
 import TransferDashboard from './components/TransferDashboard';
@@ -28,6 +28,9 @@ export default function App() {
   const [lastPeerName, setLastPeerName] = useState('Cosmic Node');
   const [incomingRequest, setIncomingRequest] = useState(null);
 
+  // Modern Toast notification state
+  const [toastMessage, setToastMessage] = useState(null);
+
   const [messages, setMessages] = useState([]);
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [sentFiles, setSentFiles] = useState([]);
@@ -44,6 +47,15 @@ export default function App() {
   const useRelayFallback = useRef(false);
   const activeIncomingFile = useRef({ info: null, chunks: [], receivedBytes: 0 });
   const countdownIntervalRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
+
+  const triggerToast = (msg) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToastMessage(msg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
 
   useEffect(() => {
     const socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
@@ -56,8 +68,15 @@ export default function App() {
 
     socket.on('nearby-peers-updated', (peers) => setNearbyPeers(peers));
     socket.on('connection-request', (data) => setIncomingRequest(data));
-    socket.on('connection-rejected', () => alert('Transmission link declined by remote voyager.'));
-    socket.on('connect-error', (data) => alert(data.message || 'Signal link failed.'));
+    
+    // Replace ugly native alerts with soft toast
+    socket.on('connection-rejected', () => {
+      triggerToast('Transmission declined by remote voyager.');
+    });
+
+    socket.on('connect-error', (data) => {
+      triggerToast(data.message || 'Transmission signal failed to establish.');
+    });
 
     socket.on('session-established', async ({ targetId, peerProfile, initiator }) => {
       targetIdRef.current = targetId;
@@ -275,7 +294,27 @@ export default function App() {
     <div className="min-h-screen flex flex-col deep-cosmos relative text-slate-800 selection:bg-sky-100 selection:text-sky-800">
       <Header userProfile={profile} userCode={selfCode} />
 
-      {/* Disconnection Notice Banner */}
+      {/* Floating Modern Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md animate-in fade-in slide-in-from-top-4 duration-250">
+          <div className="bg-white/95 backdrop-blur-md border border-rose-200 shadow-xl shadow-rose-500/10 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-1.5 rounded-lg bg-rose-50 text-rose-500 shrink-0">
+                <AlertCircle className="w-4 h-4" />
+              </div>
+              <p className="text-xs font-semibold text-slate-700">{toastMessage}</p>
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Disconnection Banner */}
       {sessionTerminated && (receivedFiles.length > 0 || messages.length > 0) && (
         <div className="w-full bg-amber-50/95 border-b border-amber-200/80 backdrop-blur-md px-4 py-3 sticky top-16 z-40 shadow-xs transition-all">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -318,7 +357,6 @@ export default function App() {
       {incomingRequest && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-slate-100 shadow-2xl text-center relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Clean Avatar Display (Emoji + Title Separated) */}
             <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-50 to-indigo-50 border border-sky-100 flex items-center justify-center mx-auto mb-3 shadow-sm">
               <span className="text-3xl select-none leading-none">
                 {incomingRequest.fromProfile?.avatar ? incomingRequest.fromProfile.avatar.split(' ')[0] : '🪐'}

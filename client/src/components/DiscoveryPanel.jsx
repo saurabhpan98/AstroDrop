@@ -32,21 +32,21 @@ export default function DiscoveryPanel({ nearbyPeers, onConnectNearby, onConnect
           <div className="space-y-2.5 min-h-[160px]">
             {nearbyPeers.length === 0 ? (
               <div className="relative h-48 border border-dashed border-sky-200/90 rounded-2xl flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-sky-50/50 via-white to-sky-50/20 overflow-hidden">
-                {/* Multi-Ring Orbital Radar Animation */}
+                {/* Clean Radar without blue circular arc */}
                 <div className="relative w-28 h-28 flex items-center justify-center mb-2">
-                  {/* Outer pulse wave */}
+                  {/* Subtle Expanding Outer Waves */}
                   <div className="absolute inset-0 rounded-full border border-sky-300/40 animate-ping" style={{ animationDuration: '3s' }}></div>
-                  {/* Middle ring */}
-                  <div className="absolute inset-2 rounded-full border border-sky-200/70 bg-sky-50/30"></div>
-                  {/* Radar sweep beam */}
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-sky-500 border-r-sky-400/40 radar-spinner"></div>
-                  {/* Orbiting satellite dot */}
-                  <div className="absolute inset-0 radar-spinner" style={{ animationDuration: '4s' }}>
-                    <div className="w-2 h-2 rounded-full bg-sky-600 shadow-sm shadow-sky-400 absolute -top-1 left-1/2 -translate-x-1/2"></div>
+                  <div className="absolute inset-2 rounded-full border border-sky-200/60 bg-sky-50/30"></div>
+                  <div className="absolute inset-5 rounded-full border border-slate-200/70"></div>
+
+                  {/* Clean Orbiting Satellite Blue Dot */}
+                  <div className="absolute inset-0 radar-spinner" style={{ animationDuration: '3.5s' }}>
+                    <div className="w-2.5 h-2.5 rounded-full bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.8)] absolute -top-1 left-1/2 -translate-x-1/2 ring-2 ring-white"></div>
                   </div>
-                  {/* Core hub */}
+
+                  {/* Center Node Hub */}
                   <div className="relative z-10 w-11 h-11 rounded-full bg-white shadow-md shadow-sky-100 border border-sky-100 flex items-center justify-center">
-                    <span className="text-base animate-pulse">🛰️</span>
+                    <span className="text-base select-none">🛰️</span>
                   </div>
                 </div>
 
