@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Light-space orbit grid background */
+.space-canvas {
+  background-image: radial-gradient(rgba(14, 165, 233, 0.15) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
