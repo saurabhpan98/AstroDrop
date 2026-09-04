@@ -11,7 +11,8 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 1e8 // 100MB buffer for real-time memory chunk streaming fallback
 });
 
 // Map: socketId -> { id, networkIp, code, connectedWith, profile }
@@ -26,17 +27,6 @@ io.on('connection', (socket) => {
   const networkIp = forwarded ? forwarded.split(',')[0].trim() : socket.handshake.address;
 
   let userCode = generateCosmicCode();
-  // Ensure unique code
-  let isUnique = false;
-  while (!isUnique) {
-    let clash = false;
-    for (const [, p] of peers) {
-      if (p.code === userCode) { clash = true; break; }
-    }
-    if (!clash) isUnique = true;
-    else userCode = generateCosmicCode();
-  }
-
   peers.set(socket.id, {
     id: socket.id,
     networkIp,
@@ -82,19 +72,14 @@ io.on('connection', (socket) => {
       }
     }
 
-    if (!targetSocketId) {
-      socket.emit('connect-error', { message: 'Cosmic code not found in current sector.' });
-      return;
-    }
-
-    if (targetSocketId === socket.id) {
-      socket.emit('connect-error', { message: 'Cannot connect to self frequency.' });
+    if (!targetSocketId || targetSocketId === socket.id) {
+      socket.emit('connect-error', { message: 'Invalid or unregistered Cosmic Code.' });
       return;
     }
 
     const targetPeer = peers.get(targetSocketId);
     if (targetPeer && targetPeer.connectedWith) {
-      socket.emit('connect-error', { message: 'Target voyager is currently occupied.' });
+      socket.emit('connect-error', { message: 'Target node is currently engaged.' });
       return;
     }
 
@@ -140,29 +125,35 @@ io.on('connection', (socket) => {
     sender.connectedWith = socket.id;
     receiver.connectedWith = fromId;
 
-    // Trigger receiver FIRST so its RTCPeerConnection and listeners are mounted
-    io.to(socket.id).emit('start-webrtc-negotiation', {
+    // Both peers immediately confirm connection
+    io.to(socket.id).emit('session-established', {
       targetId: fromId,
-      initiator: false,
-      peerProfile: sender.profile
+      peerProfile: sender.profile,
+      initiator: false
     });
 
-    // Then trigger initiator to create offer
-    setTimeout(() => {
-      io.to(fromId).emit('start-webrtc-negotiation', {
-        targetId: socket.id,
-        initiator: true,
-        peerProfile: receiver.profile
-      });
-    }, 150);
+    io.to(fromId).emit('session-established', {
+      targetId: socket.id,
+      peerProfile: receiver.profile,
+      initiator: true
+    });
   });
 
-  // Signal exchange (Offer, Answer, Candidate)
+  // WebRTC Signals
   socket.on('signal', ({ targetId, signalData }) => {
     io.to(targetId).emit('signal-received', {
       fromId: socket.id,
       signalData
     });
+  });
+
+  // Real-time Memory Relay (Guaranteed Fallback if WebRTC NAT is blocked)
+  socket.on('relay-data', ({ targetId, payload }) => {
+    io.to(targetId).emit('relay-data', { fromId: socket.id, payload });
+  });
+
+  socket.on('relay-binary', ({ targetId, chunk }) => {
+    io.to(targetId).emit('relay-binary', chunk);
   });
 
   // Disconnect handler
