@@ -137,25 +137,25 @@ astrodrop/
 
 ## 💻 Local Development Setup
 ### Prerequisites
-1. Node.js: v18.0.0 or higher
-2. npm: v9.0.0 or higher
-3. Git installed on your system
+  * **Node.js:** v18.0.0 or higher
+  * **npm:** v9.0.0 or higher
+  * **Git** installed on your system
 
-1. Clone the Repository
+### 1. Clone the Repository
 ```
 git clone [https://github.com/](https://github.com/)<your-username>/astrodrop.git
 cd astrodrop
 ```
 
-2. Start the Signaling Server
+### 2. Start the Signaling Server
 ```
 cd server
 npm install
 npm start
 ```
-*The signaling nexus will bind to http://localhost:4000.*
+*The signaling nexus will bind to `http://localhost:4000` .*
 
-3. Start the Client
+### 3. Start the Client
 Open a new terminal window:
 ```
 cd client
@@ -163,51 +163,49 @@ npm install
 npm run dev
 ```
 
-*Open http://localhost:5173 in two different browser tabs, windows, or across two devices on the same Wi-Fi network.*
+*Open `http://localhost:5173` in two different browser tabs, windows, or across two devices on the same Wi-Fi network.*
 
 ## 🚢 Production Deployment Playbook
 ### Backend (Render)
 1. Push your repository to GitHub.
-2. Log into Render.com and click New + > Web Service.
+2. Log into Render.com and click **New + > Web Service**.
 3. Select your repository.
-4. Set Root Directory to server.
-5. Set Build Command to npm install.
-6. Set Start Command to node index.js.
-7. Copy your deployed service URL (e.g., https://astrodrop-server.onrender.com).
+4. Set **Root Directory** to `server`.
+5. Set **Build Command** to `npm install`.
+6. Set **Start Command** to `node index.js`.
+7. Copy your deployed service URL (e.g., `https://astrodrop-server.onrender.com`).
 
 ### Frontend (GitHub Pages via GitHub Actions)
-1. In client/.env.production, set your live Render URL:
+1. In `client/.env.production`, set your live Render URL:
 ```
 VITE_BACKEND_URL=[https://astrodrop-server.onrender.com](https://astrodrop-server.onrender.com)
 ```
 
-2. In client/vite.config.js, ensure the base path matches your repository name:
+2. In `client/vite.config.js`, ensure the `base` path matches your repository name:
 ```
 base: process.env.NODE_ENV === 'production' ? '/<repo-name>/' : '/'
 ```
 
 3. In your GitHub repository settings:
+ * Navigate to **Settings > Pages**.
+ * Under **Build and deployment > Source**, select **GitHub Actions**.
 
- * Navigate to Settings > Pages.
-
- * Under Build and deployment > Source, select GitHub Actions.
-
-4. Push your commit to the main branch. GitHub Actions will automatically install dependencies, build the distribution, and deploy AstroDrop to GitHub Pages.
+4. Push your commit to the `main` branch. GitHub Actions will automatically install dependencies, build the distribution, and deploy AstroDrop to GitHub Pages.
 
 ## 📖 User Guide
-1. Launch AstroDrop: Upon loading, an avatar, temporary voyager handle, and a 6-character Cosmic Code are assigned to you.
-2. Connect via Local Orbit: If the target device is on the same Wi-Fi network, locate their avatar in the Planetary Orbit panel and click Connect.
-3. Connect via Remote Code: If the target device is on cellular data or an external network, enter their 6-character code into the Quantum Warp Key field and click Link.
-4. Accept Connection: The receiving voyager will see an incoming transmission prompt. Click Accept.
-5. Transmit Data:
- * Drag and drop or browse for any file in the payload zone.
- * Type real-time messages in the Sub-Space Radio chat window.
-6. Disconnect: Click Disconnect when done.
- * Staged files remain accessible for up to 1 hour with a live countdown timer
- * Click Orbit View to immediately purge all browser memory and return to the main radar.
+1. **Launch AstroDrop:** Upon loading, an avatar, temporary voyager handle, and a 6-character Cosmic Code are assigned to you.
+2. **Connect via Local Orbit:** If the target device is on the same Wi-Fi network, locate their avatar in the Planetary Orbit panel and click Connect.
+3. **Connect via Remote Code:** If the target device is on cellular data or an external network, enter their 6-character code into the Quantum Warp Key field and click Link.
+4. **Accept Connection:** The receiving voyager will see an incoming transmission prompt. Click Accept.
+5. T**ransmit Data:**
+     * Drag and drop or browse for any file in the payload zone.
+     * Type real-time messages in the Sub-Space Radio chat window.
+6. **Disconnect:** Click Disconnect when done.
+     * Staged files remain accessible for up to 1 hour with a live countdown timer
+     * Click Orbit View to immediately purge all browser memory and return to the main radar.
  
 ## 👨‍💻 Developer & Credits
- * Lead Architect & Developer: Saurabh Panchal
+ * Lead Architect & Developer: **Saurabh Panchal**
  * Project Mission: Pioneering friction-free, high-speed, zero-compromise peer-to-peer data sharing.
 
 ## 📄 License
