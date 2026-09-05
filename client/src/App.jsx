@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Trash2, Clock, AlertTriangle, ArrowLeft, X, AlertCircle } from 'lucide-react';
+import { Clock, AlertTriangle, ArrowLeft, X, AlertCircle } from 'lucide-react';
 import Header from './components/Header';
 import DiscoveryPanel from './components/DiscoveryPanel';
 import TransferDashboard from './components/TransferDashboard';
@@ -69,7 +69,6 @@ export default function App() {
     socket.on('nearby-peers-updated', (peers) => setNearbyPeers(peers));
     socket.on('connection-request', (data) => setIncomingRequest(data));
     
-    // Replace ugly native alerts with soft toast
     socket.on('connection-rejected', () => {
       triggerToast('Transmission declined by remote voyager.');
     });
@@ -284,6 +283,12 @@ export default function App() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
   };
 
+  // Purge and return to discovery screen
+  const handleOrbitViewAndPurge = () => {
+    handleManualPurge();
+    setConnectedPeer(null);
+  };
+
   const formatCountdown = (totalSec) => {
     const mins = Math.floor(totalSec / 60);
     const secs = totalSec % 60;
@@ -335,18 +340,11 @@ export default function App() {
             </div>
             <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
               <button
-                onClick={() => { setSessionTerminated(false); setConnectedPeer(null); }}
+                onClick={handleOrbitViewAndPurge}
                 className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition active:scale-95"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Orbit View</span>
-              </button>
-              <button
-                onClick={handleManualPurge}
-                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition active:scale-95"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Purge</span>
               </button>
             </div>
           </div>

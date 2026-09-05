@@ -62,7 +62,7 @@ export default function TransferDashboard({
             className="w-full sm:w-auto justify-center flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-50 text-rose-600 border border-rose-200/80 hover:bg-rose-100 transition shadow-xs active:scale-95 shrink-0"
           >
             <XCircle className="w-3.5 h-3.5" />
-            <span>Sever Link</span>
+            <span>Disconnect</span>
           </button>
         )}
       </div>
@@ -101,7 +101,7 @@ export default function TransferDashboard({
         </div>
       )}
 
-      {/* Received Downloads List (Max 2 rows + Scrollbar) */}
+      {/* Received Downloads List */}
       {receivedFiles.length > 0 && (
         <div className="mt-4 sm:mt-6">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center">
@@ -129,7 +129,7 @@ export default function TransferDashboard({
         </div>
       )}
 
-      {/* Sent Payloads List (Max 2 rows + Scrollbar) */}
+      {/* Sent Payloads List */}
       {sentFiles.length > 0 && (
         <div className="mt-4 sm:mt-6">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center">
