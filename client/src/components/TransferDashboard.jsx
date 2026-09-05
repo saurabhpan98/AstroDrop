@@ -48,7 +48,7 @@ export default function TransferDashboard({
               {isConnected ? (
                 <>Connected: <span className="text-sky-600">{peerName}</span></>
               ) : (
-                <span className="text-amber-700">Wormhole Terminated // Archive</span>
+                <span className="text-amber-700">Wormhole Terminated</span>
               )}
             </h2>
             <span className="flex items-center text-[10px] text-emerald-600 font-mono font-medium tracking-wide">
