@@ -1,10 +1,8 @@
 import React from 'react';
 import { Orbit, Radio } from 'lucide-react';
+import { renderAvatarIcon } from '../utils/constants';
 
 export default function Header({ userProfile, userCode }) {
-  // Extract emoji only from avatar string (e.g., '☄️ Comet Wanderer' -> '☄️')
-  const avatarEmoji = userProfile?.avatar ? userProfile.avatar.split(' ')[0] : '🛰️';
-
   return (
     <header className="w-full bg-white/85 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-50 shadow-xs">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 overflow-hidden">
@@ -22,12 +20,13 @@ export default function Header({ userProfile, userCode }) {
             </span>
           </div>
         </div>
-
-        {/* User Identity Chip - Responsive & Wrap-Safe */}
+        {/* User Identity Chip with SVG */}
         {userProfile && (
-          <div className="flex items-center space-x-1.5 sm:space-x-2.5 bg-slate-50 border border-slate-200 rounded-full px-2.5 sm:px-3.5 py-1 sm:py-1.5 shadow-xs shrink-0">
-            <span className="text-sm sm:text-base leading-none">{userProfile.avatar}</span>
-            <span className="text-xs font-semibold text-slate-700 border-l pl-2 border-slate-200 max-w-[85px] sm:max-w-none truncate">
+          <div className="flex items-center space-x-2 sm:space-x-2.5 bg-slate-50 border border-slate-200 rounded-full px-2.5 sm:px-3.5 py-1 sm:py-1.5 shadow-xs shrink-0">
+            <div className="p-1 rounded-full bg-sky-100/70 text-sky-600">
+              {renderAvatarIcon(userProfile.avatar?.icon, "w-3.5 h-3.5 sm:w-4 sm:h-4")}
+            </div>
+            <span className="text-xs font-semibold text-slate-700 border-l pl-2 border-slate-200 max-w-[100px] sm:max-w-none truncate">
               {userProfile.username}
             </span>
           </div>

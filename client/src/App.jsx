@@ -6,7 +6,7 @@ import DiscoveryPanel from './components/DiscoveryPanel';
 import TransferDashboard from './components/TransferDashboard';
 import ChatWindow from './components/ChatWindow';
 import Footer from './components/Footer';
-import { AVATARS, RANDOM_NAMES, CHUNK_SIZE } from './utils/constants';
+import { AVATARS, RANDOM_NAMES, CHUNK_SIZE, renderAvatarIcon } from './utils/constants';
 import { storeFileLocally, purgeLocalArtifacts } from './utils/storage';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
@@ -27,10 +27,7 @@ export default function App() {
   const [connectedPeer, setConnectedPeer] = useState(null);
   const [lastPeerName, setLastPeerName] = useState('Cosmic Node');
   const [incomingRequest, setIncomingRequest] = useState(null);
-
-  // Modern Toast notification state
   const [toastMessage, setToastMessage] = useState(null);
-
   const [messages, setMessages] = useState([]);
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [sentFiles, setSentFiles] = useState([]);
@@ -283,7 +280,6 @@ export default function App() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
   };
 
-  // Purge and return to discovery screen
   const handleOrbitViewAndPurge = () => {
     handleManualPurge();
     setConnectedPeer(null);
@@ -319,7 +315,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Disconnection Banner */}
+
+      {/* Disconnection Banner with Orbit View Purge */}
       {sessionTerminated && (receivedFiles.length > 0 || messages.length > 0) && (
         <div className="w-full bg-amber-50/95 border-b border-amber-200/80 backdrop-blur-md px-4 py-3 sticky top-16 z-40 shadow-xs transition-all">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -351,14 +348,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Clean Incoming Request Modal */}
+      {/* Clean Incoming Request Modal with SVG Avatar */}
       {incomingRequest && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-slate-100 shadow-2xl text-center relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-50 to-indigo-50 border border-sky-100 flex items-center justify-center mx-auto mb-3 shadow-sm">
-              <span className="text-3xl select-none leading-none">
-                {incomingRequest.fromProfile?.avatar ? incomingRequest.fromProfile.avatar.split(' ')[0] : '🪐'}
-              </span>
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-50 to-indigo-50 border border-sky-100 flex items-center justify-center mx-auto mb-3 shadow-sm text-sky-600">
+              {renderAvatarIcon(incomingRequest.fromProfile?.avatar?.icon, "w-8 h-8")}
               <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-sky-500 border-2 border-white"></span>
@@ -366,7 +361,7 @@ export default function App() {
             </div>
 
             <span className="inline-block text-[11px] font-semibold text-sky-600 bg-sky-50 border border-sky-100/80 px-2.5 py-0.5 rounded-full mb-2">
-              {incomingRequest.fromProfile?.avatar?.split(' ').slice(1).join(' ') || 'Voyager'}
+              {incomingRequest.fromProfile?.avatar?.name || 'Voyager'}
             </span>
 
             <h3 className="font-bold text-slate-800 text-base mb-1">Incoming Transmission</h3>
