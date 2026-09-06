@@ -8,6 +8,8 @@ import ChatWindow from './components/ChatWindow';
 import Footer from './components/Footer';
 import { AVATARS, RANDOM_NAMES, CHUNK_SIZE, renderAvatarIcon } from './utils/constants';
 import { storeFileLocally, purgeLocalArtifacts } from './utils/storage';
+import { calculateSHA256 } from './utils/fileHelpers';
+import { playRadarBlip, playWarpChime, playPayloadCompleteSound } from './utils/audio';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 const ICE_SERVERS = {
@@ -18,7 +20,7 @@ const ICE_SERVERS = {
 };
 
 export default function App() {
-  const [profile] = useState({
+  const [profile, setProfile] = useState({
     username: RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)],
     avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)]
   });
@@ -26,12 +28,15 @@ export default function App() {
   const [nearbyPeers, setNearbyPeers] = useState([]);
   const [connectedPeer, setConnectedPeer] = useState(null);
   const [lastPeerName, setLastPeerName] = useState('Cosmic Node');
+  const [lastPeerAvatar, setLastPeerAvatar] = useState(AVATARS[0]);
   const [incomingRequest, setIncomingRequest] = useState(null);
+
   const [toastMessage, setToastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [sentFiles, setSentFiles] = useState([]);
   const [transferProgress, setTransferProgress] = useState(null);
+  const [transferMetrics, setTransferMetrics] = useState({ speedFormatted: '', etaFormatted: '' });
   const [isPeerTyping, setIsPeerTyping] = useState(false);
 
   const [sessionTerminated, setSessionTerminated] = useState(false);
@@ -42,9 +47,10 @@ export default function App() {
   const dcRef = useRef(null);
   const targetIdRef = useRef(null);
   const useRelayFallback = useRef(false);
-  const activeIncomingFile = useRef({ info: null, chunks: [], receivedBytes: 0 });
+  const activeIncomingFile = useRef({ info: null, chunks: [], receivedBytes: 0, startTime: 0, lastSampleTime: 0, lastSampleBytes: 0 });
   const countdownIntervalRef = useRef(null);
   const toastTimeoutRef = useRef(null);
+  const previousPeersCount = useRef(0);
 
   const triggerToast = (msg) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -52,6 +58,13 @@ export default function App() {
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
     }, 4500);
+  };
+
+  const handleUpdateProfile = (newProfile) => {
+    setProfile(newProfile);
+    if (socketRef.current) {
+      socketRef.current.emit('register-profile', newProfile);
+    }
   };
 
   useEffect(() => {
@@ -63,7 +76,15 @@ export default function App() {
       socket.emit('register-profile', profile);
     });
 
-    socket.on('nearby-peers-updated', (peers) => setNearbyPeers(peers));
+    socket.on('nearby-peers-updated', (peers) => {
+      // 5. Orbital blip sound when new peer enters range
+      if (peers.length > previousPeersCount.current) {
+        playRadarBlip();
+      }
+      previousPeersCount.current = peers.length;
+      setNearbyPeers(peers);
+    });
+
     socket.on('connection-request', (data) => setIncomingRequest(data));
     
     socket.on('connection-rejected', () => {
@@ -75,8 +96,12 @@ export default function App() {
     });
 
     socket.on('session-established', async ({ targetId, peerProfile, initiator }) => {
+      // 5. Warp chime upon successful wormhole link
+      playWarpChime();
+
       targetIdRef.current = targetId;
       setLastPeerName(peerProfile?.username || 'Cosmic Node');
+      setLastPeerAvatar(peerProfile?.avatar || AVATARS[0]);
       setConnectedPeer({ id: targetId, profile: peerProfile || { username: 'Cosmic Node' } });
       setIncomingRequest(null);
       setSessionTerminated(false);
@@ -184,24 +209,77 @@ export default function App() {
     } else if (payload.type === 'typing') {
       setIsPeerTyping(payload.isTyping);
     } else if (payload.type === 'file-header') {
-      activeIncomingFile.current = { info: payload, chunks: [], receivedBytes: 0 };
+      const now = Date.now();
+      activeIncomingFile.current = { 
+        info: payload, 
+        chunks: [], 
+        receivedBytes: 0,
+        startTime: now,
+        lastSampleTime: now,
+        lastSampleBytes: 0
+      };
       setTransferProgress(0);
+      setTransferMetrics({ speedFormatted: 'Starting...', etaFormatted: '' });
     }
   };
 
-  const handleIncomingChunk = (chunk) => {
-    const { info, chunks } = activeIncomingFile.current;
-    if (!info) return;
-    chunks.push(chunk);
-    activeIncomingFile.current.receivedBytes += chunk.byteLength;
-    setTransferProgress(Math.round((activeIncomingFile.current.receivedBytes / info.size) * 100));
-    if (activeIncomingFile.current.receivedBytes >= info.size) {
-      const completeBlob = new Blob(chunks, { type: info.mime });
+  const handleIncomingChunk = async (chunk) => {
+    const tracker = activeIncomingFile.current;
+    if (!tracker || !tracker.info) return;
+
+    tracker.chunks.push(chunk);
+    tracker.receivedBytes += chunk.byteLength;
+
+    const totalBytes = tracker.info.size;
+    const progress = Math.min(100, Math.round((tracker.receivedBytes / totalBytes) * 100));
+    setTransferProgress(progress);
+
+    // 2. Transfer Speed & ETA Metric Calculation
+    const now = Date.now();
+    const deltaSec = (now - tracker.lastSampleTime) / 1000;
+    if (deltaSec >= 0.5) {
+      const deltaBytes = tracker.receivedBytes - tracker.lastSampleBytes;
+      const bytesPerSec = deltaBytes / deltaSec;
+      const speedMB = (bytesPerSec / (1024 * 1024)).toFixed(1);
+
+      const remainingBytes = totalBytes - tracker.receivedBytes;
+      const etaSeconds = bytesPerSec > 0 ? Math.ceil(remainingBytes / bytesPerSec) : 0;
+
+      tracker.lastSampleTime = now;
+      tracker.lastSampleBytes = tracker.receivedBytes;
+
+      setTransferMetrics({
+        speedFormatted: `${speedMB} MB/s`,
+        etaFormatted: etaSeconds > 0 ? `~${etaSeconds}s left` : ''
+      });
+    }
+
+    if (tracker.receivedBytes >= totalBytes) {
+      const completeBlob = new Blob(tracker.chunks, { type: tracker.info.mime });
+      
+      // 4. SHA-256 Checksum Verification
+      let calculatedChecksum = null;
+      if (tracker.info.checksum) {
+        calculatedChecksum = await calculateSHA256(completeBlob);
+      }
+
       const downloadUrl = URL.createObjectURL(completeBlob);
-      const fileRecord = { name: info.name, size: info.size, url: downloadUrl };
+      const fileRecord = { 
+        name: tracker.info.name, 
+        relativePath: tracker.info.relativePath,
+        isFolderItem: !!tracker.info.relativePath,
+        size: tracker.info.size, 
+        url: downloadUrl,
+        checksum: calculatedChecksum && calculatedChecksum === tracker.info.checksum
+      };
+
       setReceivedFiles((prev) => [...prev, fileRecord]);
-      storeFileLocally(Date.now(), completeBlob, info.name, info.mime);
+      storeFileLocally(Date.now(), completeBlob, tracker.info.name, tracker.info.mime);
       setTransferProgress(null);
+      setTransferMetrics({ speedFormatted: '', etaFormatted: '' });
+
+      // 5. Completion Sound
+      playPayloadCompleteSound();
     }
   };
 
@@ -215,21 +293,33 @@ export default function App() {
   };
 
   const sendFilePayload = async (file) => {
+    // 4. Calculate SHA-256 before streaming
+    const fileChecksum = await calculateSHA256(file);
+
     sendPayload({
       type: 'file-header',
       name: file.name,
+      relativePath: file.relativePath || null,
       size: file.size,
-      mime: file.type
+      mime: file.type || 'application/octet-stream',
+      checksum: fileChecksum
     });
+
     const reader = new FileReader();
     let offset = 0;
+    const startTime = Date.now();
+    let lastSampleTime = startTime;
+    let lastSampleBytes = 0;
+
     const readNext = () => {
       const slice = file.slice(offset, offset + CHUNK_SIZE);
       reader.readAsArrayBuffer(slice);
     };
+
     reader.onload = (e) => {
       const chunk = e.target.result;
       const dc = dcRef.current;
+
       if (dc && dc.readyState === 'open' && !useRelayFallback.current) {
         if (dc.bufferedAmount > 8 * 1024 * 1024) {
           setTimeout(() => reader.onload(e), 50);
@@ -239,16 +329,52 @@ export default function App() {
       } else if (socketRef.current && targetIdRef.current) {
         socketRef.current.emit('relay-binary', { targetId: targetIdRef.current, chunk });
       }
+
       offset += chunk.byteLength;
       setTransferProgress(Math.round((offset / file.size) * 100));
+
+      // Speed & ETA Metrics on Sender
+      const now = Date.now();
+      const deltaSec = (now - lastSampleTime) / 1000;
+      if (deltaSec >= 0.5) {
+        const deltaBytes = offset - lastSampleBytes;
+        const bytesPerSec = deltaBytes / deltaSec;
+        const speedMB = (bytesPerSec / (1024 * 1024)).toFixed(1);
+        const etaSeconds = bytesPerSec > 0 ? Math.ceil((file.size - offset) / bytesPerSec) : 0;
+
+        lastSampleTime = now;
+        lastSampleBytes = offset;
+
+        setTransferMetrics({
+          speedFormatted: `${speedMB} MB/s`,
+          etaFormatted: etaSeconds > 0 ? `~${etaSeconds}s left` : ''
+        });
+      }
+
       if (offset < file.size) {
         readNext();
       } else {
         setTransferProgress(null);
-        setSentFiles((prev) => [...prev, { name: file.name, size: file.size, time: Date.now() }]);
+        setTransferMetrics({ speedFormatted: '', etaFormatted: '' });
+        playPayloadCompleteSound();
+        setSentFiles((prev) => [...prev, { 
+          name: file.name, 
+          relativePath: file.relativePath || null,
+          isFolderItem: !!file.relativePath,
+          size: file.size, 
+          time: Date.now() 
+        }]);
       }
     };
     readNext();
+  };
+
+  // 3. Quick Clipboard Text Beamer
+  const handleSendClipboardText = (text) => {
+    const textBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const textFile = new File([textBlob], `snippet-${Date.now().toString().slice(-4)}.txt`, { type: 'text/plain' });
+    sendFilePayload(textFile);
+    triggerToast('Text snippet beamed as payload.');
   };
 
   const sendMessagePayload = (msg) => {
@@ -293,7 +419,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col deep-cosmos relative text-slate-800 selection:bg-sky-100 selection:text-sky-800">
-      <Header userProfile={profile} userCode={selfCode} />
+      <Header 
+        userProfile={profile} 
+        userCode={selfCode} 
+        onUpdateProfile={handleUpdateProfile} 
+      />
 
       {/* Floating Modern Toast Notification */}
       {toastMessage && (
@@ -315,8 +445,7 @@ export default function App() {
         </div>
       )}
 
-
-      {/* Disconnection Banner with Orbit View Purge */}
+      {/* Disconnection Banner */}
       {sessionTerminated && (receivedFiles.length > 0 || messages.length > 0) && (
         <div className="w-full bg-amber-50/95 border-b border-amber-200/80 backdrop-blur-md px-4 py-3 sticky top-16 z-40 shadow-xs transition-all">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -348,7 +477,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Clean Incoming Request Modal with SVG Avatar */}
+      {/* Clean Incoming Request Modal */}
       {incomingRequest && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-slate-100 shadow-2xl text-center relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -406,11 +535,15 @@ export default function App() {
             <div className="lg:col-span-2">
               <TransferDashboard
                 peerName={connectedPeer ? connectedPeer.profile?.username : lastPeerName}
+                peerAvatar={connectedPeer ? connectedPeer.profile?.avatar : lastPeerAvatar}
+                selfAvatar={profile.avatar}
                 isConnected={!!connectedPeer}
                 onSendFile={sendFilePayload}
+                onSendClipboardText={handleSendClipboardText}
                 receivedFiles={receivedFiles}
                 sentFiles={sentFiles}
                 transferProgress={transferProgress}
+                transferMetrics={transferMetrics}
                 onDisconnect={() => {
                   socketRef.current.emit('disconnect-peer');
                   handleTeardownSession();
