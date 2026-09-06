@@ -3,6 +3,8 @@
 > **Hyperspeed peer-to-peer data transport across the digital cosmos.**  
 > Stream any file directly between devices with zero size limits, zero server persistence, and end-to-end transport encryption.
 
+<img width="1349" height="641" alt="image" src="https://github.com/user-attachments/assets/3ea308aa-9cc5-4722-a428-f545de4e328f" />
+
 ---
 
 ## 🌌 Introduction & The Core Idea
