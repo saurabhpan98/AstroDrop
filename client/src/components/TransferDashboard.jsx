@@ -7,18 +7,12 @@ import {
   ShieldCheck, 
   Zap, 
   CheckCircle2, 
-  FolderUp, 
-  ClipboardCopy, 
-  Send, 
-  Check, 
-  Folder 
+  Check 
 } from 'lucide-react';
-import { extractFilesFromDataTransfer } from '../utils/fileHelpers';
 import { renderAvatarIcon } from '../utils/constants';
 
 export default function TransferDashboard({
   onSendFile,
-  onSendClipboardText,
   receivedFiles,
   sentFiles = [],
   transferProgress,
@@ -30,12 +24,6 @@ export default function TransferDashboard({
   isConnected = true
 }) {
   const fileInputRef = useRef(null);
-  const folderInputRef = useRef(null);
-
-  const [clipboardText, setClipboardText] = useState('');
-  const [showClipboardModal, setShowClipboardModal] = useState(false);
-
-  // Drag over state for folder styling
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFileChange = (e) => {
@@ -53,25 +41,12 @@ export default function TransferDashboard({
     setIsDragOver(false);
   };
 
-  // 1. Recursive Folder Dropper using webkitGetAsEntry
-  const handleDrop = async (e) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
-
-    if (e.dataTransfer.items) {
-      const files = await extractFilesFromDataTransfer(e.dataTransfer.items);
-      files.forEach(file => onSendFile(file));
-    } else if (e.dataTransfer.files) {
+    if (e.dataTransfer.files) {
       Array.from(e.dataTransfer.files).forEach(file => onSendFile(file));
     }
-  };
-
-  const submitClipboardSnippet = (e) => {
-    e.preventDefault();
-    if (!clipboardText.trim()) return;
-    onSendClipboardText(clipboardText.trim());
-    setClipboardText('');
-    setShowClipboardModal(false);
   };
 
   const formatFileSize = (bytes) => {
@@ -120,7 +95,7 @@ export default function TransferDashboard({
         )}
       </div>
 
-      {/* 7. Animated File Transfer Trajectory Beam */}
+      {/* Animated File Transfer Trajectory Beam */}
       {transferProgress !== null && (
         <div className="mt-4 p-3 bg-gradient-to-r from-sky-50 via-indigo-50 to-sky-50 border border-sky-100 rounded-2xl relative overflow-hidden">
           <div className="flex items-center justify-between px-2">
@@ -147,71 +122,39 @@ export default function TransferDashboard({
         </div>
       )}
 
-      {/* Dropzone with Folder & Clipboard Capabilities */}
+      {/* File Dropzone */}
       {isConnected && (
-        <div className="space-y-3 mt-4 sm:mt-6">
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group active:scale-[0.99] ${
-              isDragOver 
-                ? 'border-sky-500 bg-sky-100/50 scale-[1.01]' 
-                : 'border-sky-200 hover:border-sky-400 bg-sky-50/40 hover:bg-sky-50/70'
-            }`}
-          >
-            <input 
-              type="file" 
-              multiple 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              className="hidden" 
-            />
-            {/* Native Folder Selector Fallback */}
-            <input
-              type="file"
-              webkitdirectory="true"
-              directory="true"
-              multiple
-              ref={folderInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <div className="p-3.5 sm:p-4 bg-sky-600 text-white rounded-2xl shadow-md shadow-sky-200 group-hover:scale-105 group-hover:bg-sky-500 transition-all duration-200 mb-2 sm:mb-3">
-              <UploadCloud className="w-6 h-6 sm:w-7 sm:h-7" />
-            </div>
-            <p className="font-bold text-slate-800 text-xs sm:text-sm text-center">
-              Drop files or whole folders here
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5 font-mono text-center">
-              Folder structures preserved • Direct memory streaming
-            </p>
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`mt-4 sm:mt-6 border-2 border-dashed rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group active:scale-[0.99] ${
+            isDragOver 
+              ? 'border-sky-500 bg-sky-100/50 scale-[1.01]' 
+              : 'border-sky-200 hover:border-sky-400 bg-sky-50/40 hover:bg-sky-50/70'
+          }`}
+        >
+          <input 
+            type="file" 
+            multiple 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+          />
+          <div className="p-3.5 sm:p-4 bg-sky-600 text-white rounded-2xl shadow-md shadow-sky-200 group-hover:scale-105 group-hover:bg-sky-500 transition-all duration-200 mb-2 sm:mb-3">
+            <UploadCloud className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
-
-          {/* Quick Action Toolbar */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => folderInputRef.current?.click()}
-              className="flex-1 py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-semibold flex items-center justify-center space-x-1.5 transition active:scale-95"
-            >
-              <FolderUp className="w-3.5 h-3.5 text-sky-600" />
-              <span>Select Folder</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowClipboardModal(true)}
-              className="flex-1 py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-semibold flex items-center justify-center space-x-1.5 transition active:scale-95"
-            >
-              <ClipboardCopy className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Beam Text / Password</span>
-            </button>
-          </div>
+          <p className="font-bold text-slate-800 text-xs sm:text-sm text-center">
+            Tap or Drop to send files
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5 font-mono text-center">
+            Direct memory stream • Zero limits
+          </p>
         </div>
       )}
 
-      {/* 2. Transfer Progress with Speed & ETA Metrics */}
+      {/* Transfer Progress with Speed & ETA Metrics */}
       {transferProgress !== null && (
         <div className="mt-4 sm:mt-5 bg-slate-50 border border-slate-200/80 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl">
           <div className="flex justify-between text-xs font-mono text-slate-700 mb-1.5">
@@ -232,7 +175,7 @@ export default function TransferDashboard({
         </div>
       )}
 
-      {/* Received Downloads List with SHA-256 Checksum Tag */}
+      {/* Received Downloads List with SHA-256 Checksum */}
       {receivedFiles.length > 0 && (
         <div className="mt-4 sm:mt-6">
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center">
@@ -243,16 +186,11 @@ export default function TransferDashboard({
             {receivedFiles.map((file, idx) => (
               <div key={idx} className="flex items-center justify-between p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl shadow-xs gap-2">
                 <div className="flex items-center space-x-2 truncate">
-                  {file.isFolderItem ? (
-                    <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-                  ) : (
-                    <File className="w-4 h-4 text-sky-600 shrink-0" />
-                  )}
+                  <File className="w-4 h-4 text-sky-600 shrink-0" />
                   <div className="truncate">
                     <span className="text-xs font-medium text-slate-800 truncate block">
-                      {file.relativePath || file.name}
+                      {file.name}
                     </span>
-                    {/* 4. Integrity Verified Badge */}
                     {file.checksum && (
                       <span className="inline-flex items-center text-[9px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded font-semibold">
                         <Check className="w-2.5 h-2.5 mr-0.5" /> SHA-256 Verified
@@ -285,13 +223,9 @@ export default function TransferDashboard({
             {sentFiles.map((file, idx) => (
               <div key={idx} className="flex items-center justify-between p-2.5 sm:p-3 bg-slate-50/70 border border-slate-200/60 rounded-xl gap-2">
                 <div className="flex items-center space-x-2 truncate">
-                  {file.isFolderItem ? (
-                    <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-                  ) : (
-                    <File className="w-4 h-4 text-emerald-600 shrink-0" />
-                  )}
+                  <File className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span className="text-xs font-medium text-slate-700 truncate">
-                    {file.relativePath || file.name}
+                    {file.name}
                   </span>
                   <span className="text-[10px] text-slate-400 font-mono shrink-0">
                     ({formatFileSize(file.size)})
@@ -302,50 +236,6 @@ export default function TransferDashboard({
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* 3. Send Clipboard Snippet Modal */}
-      {showClipboardModal && (
-        <div 
-          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
-          onClick={() => setShowClipboardModal(false)}
-        >
-          <div 
-            className="bg-white rounded-3xl p-5 max-w-sm w-full border border-slate-100 shadow-2xl relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h4 className="font-bold text-slate-800 text-sm mb-1">Beam Clipboard Snippet</h4>
-            <p className="text-xs text-slate-400 mb-3">
-              Transmit a code block, URL, or password instantly as a pure memory payload.
-            </p>
-            <form onSubmit={submitClipboardSnippet} className="space-y-3">
-              <textarea
-                rows={4}
-                required
-                value={clipboardText}
-                onChange={(e) => setClipboardText(e.target.value)}
-                placeholder="Paste code, private note, or link here..."
-                className="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowClipboardModal(false)}
-                  className="flex-1 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 text-xs font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 flex items-center justify-center space-x-1 shadow-xs"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Beam</span>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

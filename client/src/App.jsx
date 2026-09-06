@@ -20,7 +20,7 @@ const ICE_SERVERS = {
 };
 
 export default function App() {
-  const [profile, setProfile] = useState({
+  const [profile] = useState({
     username: RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)],
     avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)]
   });
@@ -60,13 +60,6 @@ export default function App() {
     }, 4500);
   };
 
-  const handleUpdateProfile = (newProfile) => {
-    setProfile(newProfile);
-    if (socketRef.current) {
-      socketRef.current.emit('register-profile', newProfile);
-    }
-  };
-
   useEffect(() => {
     const socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
@@ -77,7 +70,6 @@ export default function App() {
     });
 
     socket.on('nearby-peers-updated', (peers) => {
-      // 5. Orbital blip sound when new peer enters range
       if (peers.length > previousPeersCount.current) {
         playRadarBlip();
       }
@@ -96,7 +88,6 @@ export default function App() {
     });
 
     socket.on('session-established', async ({ targetId, peerProfile, initiator }) => {
-      // 5. Warp chime upon successful wormhole link
       playWarpChime();
 
       targetIdRef.current = targetId;
@@ -234,7 +225,7 @@ export default function App() {
     const progress = Math.min(100, Math.round((tracker.receivedBytes / totalBytes) * 100));
     setTransferProgress(progress);
 
-    // 2. Transfer Speed & ETA Metric Calculation
+    // Transfer Speed & ETA Metric Calculation
     const now = Date.now();
     const deltaSec = (now - tracker.lastSampleTime) / 1000;
     if (deltaSec >= 0.5) {
@@ -257,7 +248,7 @@ export default function App() {
     if (tracker.receivedBytes >= totalBytes) {
       const completeBlob = new Blob(tracker.chunks, { type: tracker.info.mime });
       
-      // 4. SHA-256 Checksum Verification
+      // SHA-256 Checksum Verification
       let calculatedChecksum = null;
       if (tracker.info.checksum) {
         calculatedChecksum = await calculateSHA256(completeBlob);
@@ -266,8 +257,6 @@ export default function App() {
       const downloadUrl = URL.createObjectURL(completeBlob);
       const fileRecord = { 
         name: tracker.info.name, 
-        relativePath: tracker.info.relativePath,
-        isFolderItem: !!tracker.info.relativePath,
         size: tracker.info.size, 
         url: downloadUrl,
         checksum: calculatedChecksum && calculatedChecksum === tracker.info.checksum
@@ -278,7 +267,6 @@ export default function App() {
       setTransferProgress(null);
       setTransferMetrics({ speedFormatted: '', etaFormatted: '' });
 
-      // 5. Completion Sound
       playPayloadCompleteSound();
     }
   };
@@ -293,13 +281,11 @@ export default function App() {
   };
 
   const sendFilePayload = async (file) => {
-    // 4. Calculate SHA-256 before streaming
     const fileChecksum = await calculateSHA256(file);
 
     sendPayload({
       type: 'file-header',
       name: file.name,
-      relativePath: file.relativePath || null,
       size: file.size,
       mime: file.type || 'application/octet-stream',
       checksum: fileChecksum
@@ -333,7 +319,6 @@ export default function App() {
       offset += chunk.byteLength;
       setTransferProgress(Math.round((offset / file.size) * 100));
 
-      // Speed & ETA Metrics on Sender
       const now = Date.now();
       const deltaSec = (now - lastSampleTime) / 1000;
       if (deltaSec >= 0.5) {
@@ -359,22 +344,12 @@ export default function App() {
         playPayloadCompleteSound();
         setSentFiles((prev) => [...prev, { 
           name: file.name, 
-          relativePath: file.relativePath || null,
-          isFolderItem: !!file.relativePath,
           size: file.size, 
           time: Date.now() 
         }]);
       }
     };
     readNext();
-  };
-
-  // 3. Quick Clipboard Text Beamer
-  const handleSendClipboardText = (text) => {
-    const textBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const textFile = new File([textBlob], `snippet-${Date.now().toString().slice(-4)}.txt`, { type: 'text/plain' });
-    sendFilePayload(textFile);
-    triggerToast('Text snippet beamed as payload.');
   };
 
   const sendMessagePayload = (msg) => {
@@ -419,11 +394,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col deep-cosmos relative text-slate-800 selection:bg-sky-100 selection:text-sky-800">
-      <Header 
-        userProfile={profile} 
-        userCode={selfCode} 
-        onUpdateProfile={handleUpdateProfile} 
-      />
+      <Header userProfile={profile} userCode={selfCode} />
 
       {/* Floating Modern Toast Notification */}
       {toastMessage && (
@@ -539,7 +510,6 @@ export default function App() {
                 selfAvatar={profile.avatar}
                 isConnected={!!connectedPeer}
                 onSendFile={sendFilePayload}
-                onSendClipboardText={handleSendClipboardText}
                 receivedFiles={receivedFiles}
                 sentFiles={sentFiles}
                 transferProgress={transferProgress}
