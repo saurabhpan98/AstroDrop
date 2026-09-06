@@ -24,9 +24,12 @@ In an era where everyday file sharing typically relies on cloud intermediaries, 
 ### **Client (Frontend)**
 * **Framework:** React 18 (Bootstrapped with Vite)
 * **Styling:** Tailwind CSS (Custom Cosmic Light/Clean Orbit theme)
-* **Icons:** Lucide React
+* **Icons:** Lucide React (Expanded library of sharp SVG vector insignia)
 * **Client Ephemeral Cache:** IndexedDB API (Structured file assembly & local storage)
 * **Real-time Engine:** WebRTC (`RTCPeerConnection`, `RTCDataChannel`) & `socket.io-client`
+* **Audio Synthesis:** Web Audio API (Hardware oscillator sound cues with zero external assets)
+* **Cryptography:** Web Cryptography API (`crypto.subtle.digest` for SHA-256 checksums)
+* **Application Shell:** PWA (Service Worker + Web App Manifest + Web Share Target API)
 * **Hosting:** GitHub Pages (Automated via GitHub Actions CI/CD)
 
 ### **Server (Signaling Nexus)**
@@ -41,17 +44,26 @@ In an era where everyday file sharing typically relies on cloud intermediaries, 
 ## 🛰️ Key Features
 
 * **Subnet Planetary Radar:** Automatically detects other devices running AstroDrop on the same Wi-Fi or gateway network.
-* **Quantum Warp Key:** Cross-network peer discovery via random, ephemeral 6-character beacon codes.
-* **No File Size or Type Boundaries:** Send `.iso`, `.zip`, `.mp4`, raw `.raw` photos, executables, or directories packed into archives. AstroDrop streams memory slices via standard `ArrayBuffer` pipelines.
-* **Live In-Transit Progress:** Real-time percentage indicator tracking memory byte transfer.
+* **Quantum Warp Key:** Cross-network peer discovery via random, ephemeral 6-character beacon codes with real-time cypher/scramble load animations.
+* **No File Size or Type Boundaries:** Send `.iso`, `.zip`, `.mp4`, raw `.raw` photos, executables, or multi-file batches. AstroDrop streams memory slices via standard `ArrayBuffer` pipelines.
+* **Live In-Transit Progress & Metrics:** Real-time percentage indicator accompanied by live transfer throughput speeds (`MB/s`) and dynamic ETA countdown metrics (`~Xs left`).
+* **File Integrity Verification (SHA-256):** Automatic client-side cryptographic hashing verifies files upon receipt, displaying a green **"SHA-256 Verified"** badge to ensure zero bit-rot or payload corruption.
+* **Animated Transfer Trajectory Beam:** Dynamic, glowing particle beam connecting sender and receiver insignia during active transport streams.
 * **Bi-Directional Payloads List:**
-  * **Intercepted Payloads:** Instant extraction/download buttons for received files.
+  * **Intercepted Payloads:** Instant extraction/download buttons for received files with verified integrity checks
   * **Dispatched Payloads:** Live confirmation checkmarks with formatted file sizes for sent items.
-* **Ephemeral Sub-Space Intercom:** Low-latency end-to-end text chat between connected voyagers with live typing indicators.
+* **Ephemeral Sub-Space Intercom:** Low-latency end-to-end text chat between connected voyagers with live typing indicators
+* **Interactive Step-by-Step Info Modals:** Dedicated `i` (info) buttons providing clean, contextual guidance for both Planetary Orbit and Quantum Warp modes.
+* **24 Vector Insignia & 40 Celestial Call-signs:** 960+ unique procedural identity combinations rendered using clean, modern SVG vectors.
+* **Sci-Fi Web Audio Synthesizer:** Pure browser-generated sound cues:
+  * Soft frequency sweep when a peer is detected on radar.
+  * Harmonic warp chime when a wormhole link is established.
+  * Sub-bass resonant ping upon payload delivery completion.
 * **Smart Purge & 1-Hour Ephemeral Timer:**
   * If a session closes, staged files and chat logs remain in the browser for **1 hour** before being scrubbed by an automated garbage-collection interval.
   * Clicking **"Orbit View"** immediately wipes local IndexedDB artifacts and memory, returning the user to discovery mode.
-* **Adaptive Light Space Theme:** Polished cosmic UI with animated radar sweeps, celestial avatars, responsive cards, and zero eye fatigue.
+* **PWA & Web Share Target Integration:** Installable as a native app on Android, iOS, macOS, and Windows with support for direct OS-level file sharing.
+* **Adaptive Light Space Theme:** Polished cosmic UI with animated radar sweeps, responsive cards, and zero eye fatigue.
 
 ---
 
@@ -69,6 +81,9 @@ WebRTC enforces **DTLS (Datagram Transport Layer Security)** and **SRTP (Secure 
 Received files are staged locally within the client’s browser memory via the `IndexedDB` API. Once a connection terminates:
 * The user can exit to **Orbit View**, which runs `purgeLocalArtifacts()` and deletes all active blobs and chat states.
 * If left untouched, an automated 3,600-second (1-hour) timeout executes an internal purge, ensuring shared items never persist indefinitely on shared workstations.
+
+### 4. Cryptographic Payload Verification
+Before chunks are dispatched, the sender generates a SHA-256 hash using the native browser `SubtleCrypto` interface. The receiving peer re-computes the digest upon memory reassembly to verify mathematical equivalence before download.
 
 ---
 
@@ -92,7 +107,7 @@ Received files are staged locally within the client’s browser memory via the `
 │══════════════════ 10. DIRECT ENCRYPTED WebRTC DATA CHANNEL OPENED ═══════════════════════════════════│
 │                                                                                                      │
 │  ─── Ephemeral Chat Messages (JSON) ──────────────────────────────────────────────────────────────>  │
-│  ─── Binary Stream: [64KB Chunks via ArrayBuffer] ────────────────────────────────────────────────>  │
+│  ─── Binary Stream: [64KB Chunks via ArrayBuffer with SHA-256] ───────────────────────────────────>  │
 │                                                                                                      │
 ```
 
@@ -115,6 +130,9 @@ astrodrop/
 │   ├── package.json                # Server-side dependencies
 │   └── index.js                    # Express + Socket.io Signaling & Memory Relay Nexus
 └── client/
+    ├── public/
+    │   ├── manifest.json           # PWA Web App Manifest & Web Share Target configuration
+    │   └── sw.js                   # Service Worker for PWA shell caching & background sync
     ├── package.json                # Client-side dependencies & scripts
     ├── vite.config.js              # Vite build setup & base path configuration
     ├── tailwind.config.js          # Tailored Tailwind color palette & utilities
@@ -131,6 +149,7 @@ astrodrop/
         │   ├── ChatWindow.jsx      # Sub-space intercom with live typing indicator
         │   └── Footer.jsx          # Security status and developer credits
         └── utils/
+		    ├── audio.js            # Web Audio API procedural sound effects synthesizer
             ├── constants.js        # Avatars, random name arrays & chunk size constants
             ├── storage.js          # Ephemeral IndexedDB wrapper & purge utilities
             └── webrtc.js           # Low-level WebRTC DataChannel connection manager
@@ -195,16 +214,19 @@ base: process.env.NODE_ENV === 'production' ? '/<repo-name>/' : '/'
 4. Push your commit to the `main` branch. GitHub Actions will automatically install dependencies, build the distribution, and deploy AstroDrop to GitHub Pages.
 
 ## 📖 User Guide
-1. **Launch AstroDrop:** Upon loading, an avatar, temporary voyager handle, and a 6-character Cosmic Code are assigned to you.
-2. **Connect via Local Orbit:** If the target device is on the same Wi-Fi network, locate their avatar in the Planetary Orbit panel and click Connect.
-3. **Connect via Remote Code:** If the target device is on cellular data or an external network, enter their 6-character code into the Quantum Warp Key field and click Link.
-4. **Accept Connection:** The receiving voyager will see an incoming transmission prompt. Click Accept.
-5. T**ransmit Data:**
-     * Drag and drop or browse for any file in the payload zone.
-     * Type real-time messages in the Sub-Space Radio chat window.
-6. **Disconnect:** Click Disconnect when done.
-     * Staged files remain accessible for up to 1 hour with a live countdown timer
-     * Click Orbit View to immediately purge all browser memory and return to the main radar.
+1. **Launch AstroDrop:** Upon loading, a vector avatar, temporary voyager handle, and an animated 6-character Cosmic Beacon Code are assigned to you.
+2. **Connect via Local Orbit:** If the target device is on the same Wi-Fi network, locate their avatar in the Planetary Orbit panel and click **Connect**
+3. **Connect via Remote Code:** If the target device is on cellular data or an external network, enter their 6-character code into the Quantum Warp Key field and click **Link**.
+4. **Need Help?** Click the **`i` (info)** icon on either card to inspect detailed step-by-step instructions.
+5. **Accept Connection:** The receiving voyager will see an incoming transmission prompt with audio confirmation. Click **Accept**.
+6. **Transmit Data:**
+   * Drag and drop or browse for any files in the payload zone.
+   * Monitor real-time streaming metrics including delta throughput (`MB/s`), remaining time (`~Xs left`), and particle trajectory beams.
+   * Type real-time messages in the Sub-Space Radio chat window.
+7. **Extract & Verify:** Download completed files tagged with cryptographic **SHA-256 Integrity Verified** verification.
+8. **Disconnect:** Click **Disconnect** when done.
+   * Staged files remain accessible for up to 1 hour with a live countdown timer.
+   * Click **Orbit View** to immediately purge all browser memory and return to the main radar.
  
 ## 👨‍💻 Developer & Credits
  * Lead Architect & Developer: **Saurabh Panchal**
