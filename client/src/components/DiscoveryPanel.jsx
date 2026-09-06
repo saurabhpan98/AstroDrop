@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { KeyRound, Send, ArrowRight, Compass, Wifi, Globe, Info, X, ChevronLeft, ChevronRight, Star, Quote } from 'lucide-react';
-import { renderAvatarIcon, REVIEWS } from '../utils/constants';
+import { KeyRound, Send, ArrowRight, Compass, Wifi, Globe, Info, X } from 'lucide-react';
+import { renderAvatarIcon } from '../utils/constants';
 
 export default function DiscoveryPanel({ nearbyPeers, onConnectNearby, onConnectCode, selfCode }) {
   const [remoteCode, setRemoteCode] = useState('');
   const [activeTab, setActiveTab] = useState('orbit');
   const [infoModal, setInfoModal] = useState(null); // 'orbit' | 'warp' | null
 
-  // 1. Fast changing digit cipher animation while code is pending
+  // Fast changing digit cipher animation while code is pending
   const [scrambleCode, setScrambleCode] = useState('A8X3Q9');
   const isCodePending = !selfCode || selfCode === '------';
 
@@ -23,18 +23,6 @@ export default function DiscoveryPanel({ nearbyPeers, onConnectNearby, onConnect
     }, 65);
     return () => clearInterval(interval);
   }, [isCodePending]);
-
-  // 4. Reviews Carousel Autoplay
-  const [reviewIdx, setReviewIdx] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-  useEffect(() => {
-    if (isPaused) return;
-    const interval = setInterval(() => {
-      setReviewIdx((prev) => (prev + 1) % REVIEWS.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [isPaused]);
 
   return (
     <div className="max-w-5xl w-full mx-auto my-3 sm:my-6 px-1 sm:px-4">
@@ -222,66 +210,7 @@ export default function DiscoveryPanel({ nearbyPeers, onConnectNearby, onConnect
         </div>
       </div>
 
-      {/* 4. Elegant User Reviews Carousel */}
-      <div 
-        className="mt-6 sm:mt-10 cosmic-card rounded-2xl sm:rounded-3xl p-5 sm:p-7 relative overflow-hidden"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Quote className="w-4 h-4 text-sky-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Voyager Transmission Logs</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={() => setReviewIdx((prev) => (prev - 1 + REVIEWS.length) % REVIEWS.length)}
-              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 transition active:scale-95"
-              aria-label="Previous review"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setReviewIdx((prev) => (prev + 1) % REVIEWS.length)}
-              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 transition active:scale-95"
-              aria-label="Next review"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="min-h-[90px] flex flex-col justify-between transition-all duration-300">
-          <p className="text-xs sm:text-sm text-slate-700 italic font-medium leading-relaxed">
-            "{REVIEWS[reviewIdx].comment}"
-          </p>
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-            <div>
-              <span className="font-bold text-xs text-slate-800 block">{REVIEWS[reviewIdx].name}</span>
-              <span className="text-[11px] text-slate-400 font-medium">{REVIEWS[reviewIdx].role}</span>
-            </div>
-            <div className="flex space-x-0.5">
-              {[...Array(REVIEWS[reviewIdx].rating)].map((_, i) => (
-                <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Carousel indicator dots */}
-        <div className="flex justify-center space-x-1.5 mt-3">
-          {REVIEWS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setReviewIdx(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${i === reviewIdx ? 'w-5 bg-sky-500' : 'w-1.5 bg-slate-200'}`}
-              aria-label={`Go to slide ${i + 1}`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* 3. Clean Info Step-by-Step Modals */}
+      {/* Info Step-by-Step Modals */}
       {infoModal && (
         <div 
           className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
